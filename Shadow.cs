@@ -20,18 +20,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 
-
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Unity.Collections;
-using Unity.VisualScripting;
 using System;
-using static UnityEditor.Rendering.FilterWindow;
-using static UnityEngine.Rendering.DebugUI;
-using static UnityEngine.UI.Image;
-
-
 
 [UxmlElement]
 public partial class Shadow : VisualElement
@@ -39,14 +32,24 @@ public partial class Shadow : VisualElement
 
     //private Vertex[] k_Vertices;
     private NativeArray<Vertex> k_Vertices;
-    private Color clearColor;
 
+    private bool init = false;
+
+    private Color outerColor;
+    private Color innerColor;
+
+    private float outerColorTransparence = 0f;
+    private float innerColorTransparence = 1f;
+
+    // For keeping track of original values for unhover
     private float originalScale;
     private float originalCornerRadius;
     private float originalOffsetX;
     private float originalOffsetY;
+    private float originalOuterTransparence;
+    private float originalInnerTransparence;
 
-    [UxmlAttribute("shadow-color")]
+    // Have changed all ints to floats because "experimental.animation.Start" can't take int
     public Color shadowColor { get; set; }
 
     [UxmlAttribute("shadow-transition")]
@@ -110,25 +113,23 @@ public partial class Shadow : VisualElement
     //        //shadow.shadowCornerSubdivisions = subdivisionsAttr.GetValueFromBag(bag, cc);
     //    }
     //}
-
-    public Shadow()
+    public Shadow() 
     {
-        clearColor = new Color(0, 0, 0, 0);
+        generateVisualContent += OnGenerateVisualContent;
+    }
+    public Shadow(Color color)
+    {
+        style.color = color;
         generateVisualContent += OnGenerateVisualContent;
     }
 
     private void OnGenerateVisualContent(MeshGenerationContext ctx)
     {
-        if (clearColor == Color.clear)
-        {
-            clearColor = new(shadowColor.r, shadowColor.g, shadowColor.b, 0);
-            originalScale = shadowScale;
-            originalCornerRadius = shadowCornerRadius;
-            originalOffsetX = shadowOffsetX;
-            originalOffsetY = shadowOffsetY;
-        }
-        else
-            clearColor = new(resolvedStyle.color.r, resolvedStyle.color.g, resolvedStyle.color.b, 0);
+
+        if (!init) Init();
+
+        outerColor = new(resolvedStyle.color.r, resolvedStyle.color.g, resolvedStyle.color.b, outerColorTransparence);
+        innerColor = new(resolvedStyle.color.r, resolvedStyle.color.g, resolvedStyle.color.b, innerColorTransparence);
 
         Rect r = contentRect;
 
@@ -163,63 +164,63 @@ public partial class Shadow : VisualElement
 
         var vertex = k_Vertices[0];
         vertex.position = new Vector3(left + halfSpread, bottom + halfSpread, Vertex.nearZ);
-        vertex.tint = clearColor;
+        vertex.tint = outerColor;
         k_Vertices[0] = vertex;
 
         vertex = k_Vertices[1];
         vertex.position = new Vector3(left + halfSpread, top - halfSpread, Vertex.nearZ);
-        vertex.tint = clearColor;
+        vertex.tint = outerColor;
         k_Vertices[1] = vertex;
 
         vertex = k_Vertices[2];
         vertex.position = new Vector3(right - halfSpread, top - halfSpread, Vertex.nearZ);
-        vertex.tint = clearColor;
+        vertex.tint = outerColor;
         k_Vertices[2] = vertex;
 
         vertex = k_Vertices[3];
         vertex.position = new Vector3(right - halfSpread, bottom + halfSpread, Vertex.nearZ);
-        vertex.tint = clearColor;
+        vertex.tint = outerColor;
         k_Vertices[3] = vertex;
 
         vertex = k_Vertices[8];
         vertex.position = new Vector3(right + halfSpread, bottom - halfSpread, Vertex.nearZ);
-        vertex.tint = clearColor;
+        vertex.tint = outerColor;
         k_Vertices[8] = vertex;
 
         vertex = k_Vertices[9];
         vertex.position = new Vector3(left - halfSpread, bottom - halfSpread, Vertex.nearZ);
-        vertex.tint = clearColor;
+        vertex.tint = outerColor;
         k_Vertices[9] = vertex;
 
         vertex = k_Vertices[10];
         vertex.position = new Vector3(left - halfSpread, top + halfSpread, Vertex.nearZ);
-        vertex.tint = clearColor;
+        vertex.tint = outerColor;
         k_Vertices[10] = vertex;
 
         vertex = k_Vertices[11];
         vertex.position = new Vector3(right + halfSpread, top + halfSpread, Vertex.nearZ);
-        vertex.tint = clearColor;
+        vertex.tint = outerColor;
         k_Vertices[11] = vertex;
 
         // Inside rectangle
         vertex = k_Vertices[4];
         vertex.position = new Vector3(0 + halfSpread, r.height - halfSpread, Vertex.nearZ);
-        vertex.tint = resolvedStyle.color;
+        vertex.tint = innerColor;
         k_Vertices[4] = vertex;
 
         vertex = k_Vertices[5];
         vertex.position = new Vector3(0 + halfSpread, 0 + halfSpread, Vertex.nearZ);
-        vertex.tint = resolvedStyle.color;
+        vertex.tint = innerColor;
         k_Vertices[5] = vertex;
 
         vertex = k_Vertices[6];
         vertex.position = new Vector3(r.width - halfSpread, 0 + halfSpread, Vertex.nearZ);
-        vertex.tint = resolvedStyle.color;
+        vertex.tint = innerColor;
         k_Vertices[6] = vertex;
 
         vertex = k_Vertices[7];
         vertex.position = new Vector3(r.width - halfSpread, r.height - halfSpread, Vertex.nearZ);
-        vertex.tint = resolvedStyle.color;
+        vertex.tint = innerColor;
         k_Vertices[7] = vertex;
 
         // Top right corner
@@ -229,7 +230,7 @@ public partial class Shadow : VisualElement
             float angle = (Mathf.PI * 0.5f / curveSubdivisions) + (Mathf.PI * 0.5f / curveSubdivisions) * i;
             var vert = k_Vertices[vertexId];
             vert.position = new Vector3(r.width - halfSpread + Mathf.Sin(angle) * shadowCornerRadius, 0 + halfSpread + (-Mathf.Cos(angle) * shadowCornerRadius), Vertex.nearZ);
-            vert.tint = clearColor;
+            vert.tint = outerColor;
             k_Vertices[vertexId] = vert;
         }
 
@@ -240,7 +241,7 @@ public partial class Shadow : VisualElement
             float angle = (Mathf.PI * 0.5f) + (Mathf.PI * 0.5f / curveSubdivisions) + (Mathf.PI * 0.5f / curveSubdivisions) * i;
             var vert = k_Vertices[vertexId];
             vert.position = new Vector3(r.width - halfSpread + Mathf.Sin(angle) * shadowCornerRadius, r.height - halfSpread + (-Mathf.Cos(angle) * shadowCornerRadius), Vertex.nearZ);
-            vert.tint = clearColor;
+            vert.tint = outerColor;
             k_Vertices[vertexId] = vert;
         }
 
@@ -252,7 +253,7 @@ public partial class Shadow : VisualElement
 
             var vert = k_Vertices[vertexId];
             vert.position = new Vector3(0 + halfSpread + Mathf.Sin(angle) * shadowCornerRadius, r.height - halfSpread + (-Mathf.Cos(angle) * shadowCornerRadius), Vertex.nearZ);
-            vert.tint = clearColor;
+            vert.tint = outerColor;
             k_Vertices[vertexId] = vert;
         }
 
@@ -264,7 +265,7 @@ public partial class Shadow : VisualElement
 
             var vert = k_Vertices[vertexId];
             vert.position = new Vector3(0 + halfSpread + Mathf.Sin(angle) * shadowCornerRadius, 0 + halfSpread + (-Mathf.Cos(angle) * shadowCornerRadius), Vertex.nearZ);
-            vert.tint = clearColor;
+            vert.tint = outerColor;
             k_Vertices[vertexId] = vert;
         }
 
@@ -370,6 +371,79 @@ public partial class Shadow : VisualElement
         k_Vertices.Dispose();
     }
 
+    // Init values here instead of constructor because there are empty on moment then class created
+    public void Init()
+    {
+        init = true;
+        shadowColor = style.color.value;
+        originalScale = shadowScale;
+        originalCornerRadius = shadowCornerRadius;
+        originalOffsetX = shadowOffsetX;
+        originalOffsetY = shadowOffsetY;
+        originalOuterTransparence = outerColorTransparence;
+        originalInnerTransparence = innerColorTransparence;
+    }
+
+
+    public static Shadow CreateShadowOuter<T>(
+        T VisElem,
+        float cornerRadius,
+        float scale,
+        float offsetX,
+        float offsetY,
+        float duration,
+        float outerOpacity,
+        float innerOpacity,
+        Color shadowColor) where T : VisualElement, new()
+    {
+        var shadowElement = new Shadow(shadowColor)
+        {
+            shadowCornerRadius = cornerRadius,
+            shadowScale = scale,
+            shadowOffsetX = offsetX,
+            shadowOffsetY = offsetY,
+            shadowTransition = duration,
+            shadowColor = shadowColor,
+            outerColorTransparence = outerOpacity,
+            innerColorTransparence = innerOpacity
+
+        };
+        shadowElement.Add(VisElem);
+        return shadowElement;
+    }
+
+    public static Shadow CreateShadowInner<T>(
+        T VisElem,
+        float cornerRadius,
+        float scale,
+        float offsetX,
+        float offsetY,
+        float duration,
+        float outerOpacity,
+        float innerOpacity,
+        Color shadowColor) where T : VisualElement, new()
+    {
+        var shadowElement = new Shadow(shadowColor)
+        {
+            shadowCornerRadius = cornerRadius,
+            shadowScale = scale,
+            shadowOffsetX = offsetX,
+            shadowOffsetY = offsetY,
+            shadowTransition = duration,
+            shadowColor = shadowColor,
+            outerColorTransparence = outerOpacity,
+            innerColorTransparence = innerOpacity
+        };
+        shadowElement.style.position = Position.Absolute;
+        shadowElement.style.left = 0;
+        shadowElement.style.top = 0;
+        shadowElement.style.width = new Length(100, LengthUnit.Percent);
+        shadowElement.style.height = new Length(100, LengthUnit.Percent);
+
+        VisElem.Add(shadowElement);
+        return shadowElement;
+    }
+
     public void AddHoverColor(Color hoverColor)
     {
         RegisterCallback<MouseEnterEvent>(evt =>
@@ -388,133 +462,25 @@ public partial class Shadow : VisualElement
             onValueChanged: (e, color) => { style.color = color; }
         ));
     }
-    #region old_transition
-    public void AddScaleTransition(float scale)
-    {
-        RegisterCallback<MouseEnterEvent>(evt =>
-         experimental.animation.Start(
-            from: originalScale,
-            to: scale,
-            durationMs: (int)(shadowTransition * 1000),
-            onValueChanged: (e, scale) =>
-            {
-                shadowScale = scale;
-                Debug.Log(originalScale);
-            }
-        ));
-
-        RegisterCallback<MouseLeaveEvent>(evt =>
-        experimental.animation.Start(
-            from: scale,
-            to: originalScale,
-            durationMs: (int)(shadowTransition * 1000),
-            onValueChanged: (e, scale) =>
-            {
-                shadowScale = scale;
-                Debug.Log(originalScale);
-            }
-        ));
-    }
-    //public void AddCornerRadiusTransition(float CornerRadius)
-    //{
-    //    RegisterCallback<MouseEnterEvent>(evt =>
-    //     experimental.animation.Start(
-    //        from: originalCornerRadius,
-    //        to: CornerRadius,
-    //        durationMs: (int)(shadowTransition * 1000),
-    //        onValueChanged: (e, CornerRadius) =>
-    //        {
-    //            shadowCornerRadius = CornerRadius;
-    //        }
-    //    ));
-
-    //    RegisterCallback<MouseLeaveEvent>(evt =>
-    //    experimental.animation.Start(
-    //        from: CornerRadius,
-    //        to: originalCornerRadius,
-    //        durationMs: (int)(shadowTransition * 1000),
-    //        onValueChanged: (e, CornerRadius) =>
-    //        {
-    //            shadowCornerRadius = CornerRadius;
-    //        }
-    //    ));
-    //}
-    //public void AddOffsetTransition(float OffsetX, float OffsetY)
-    //{
-    //    AddOffsetXTransition(OffsetX);
-    //    AddOffsetYTransition(OffsetY);
-    //}
-    //public void AddOffsetXTransition(float OffsetX)
-    //{
-    //    RegisterCallback<MouseEnterEvent>(evt =>
-    //     experimental.animation.Start(
-    //        from: originalOffsetX,
-    //        to: OffsetX,
-    //        durationMs: (int)(shadowTransition * 1000),
-    //        onValueChanged: (e, OffsetX) =>
-    //        {
-    //            shadowOffsetX = OffsetX;
-    //        }
-    //    ));
-
-    //    RegisterCallback<MouseLeaveEvent>(evt =>
-    //    experimental.animation.Start(
-    //        from: OffsetX,
-    //        to: originalOffsetX,
-    //        durationMs: (int)(shadowTransition * 1000),
-    //        onValueChanged: (e, OffsetX) =>
-    //        {
-    //            shadowOffsetX = OffsetX;
-    //        }
-    //    ));
-    //}
-    //public void AddOffsetYTransition(float OffsetY)
-    //{
-    //    RegisterCallback<MouseEnterEvent>(evt =>
-    //     experimental.animation.Start(
-    //        from: originalOffsetY,
-    //        to: OffsetY,
-    //        durationMs: (int)(shadowTransition * 1000),
-    //        onValueChanged: (e, OffsetY) =>
-    //        {
-    //            shadowOffsetY = OffsetY;
-    //        }
-    //    ));
-
-    //    RegisterCallback<MouseLeaveEvent>(evt =>
-    //    experimental.animation.Start(
-    //        from: OffsetY,
-    //        to: originalOffsetY,
-    //        durationMs: (int)(shadowTransition * 1000),
-    //        onValueChanged: (e, OffsetY) =>
-    //        {
-    //            shadowOffsetY = OffsetY;
-    //        }
-    //    ));
-    //}
-    #endregion
-
-    public void AddScaleTransitionNew(float scale)
-    {
+    public void AddScaleTransition(float scale) => 
         StartAnimation(scale, () => originalScale, scale => shadowScale = scale);
-    }
-    public void AddCornerRadiusTransition(float CornerRadius)
-    {
+    public void AddCornerRadiusTransition(float CornerRadius) =>
         StartAnimation(CornerRadius, () => originalCornerRadius, CornerRadius => shadowCornerRadius = CornerRadius);
-    }
-    public void AddOffsetYTransition(float OffsetY) 
-    {
+    public void AddOffsetYTransition(float OffsetY) =>
         StartAnimation(OffsetY, () => originalOffsetY, OffsetY => shadowOffsetY = OffsetY);
-    }
-    public void AddOffsetXTransition(float OffsetX) 
-    {
+    public void AddOffsetXTransition(float OffsetX) =>
         StartAnimation(OffsetX, () => originalOffsetX, OffsetX => shadowOffsetX = OffsetX);
-    }
+    public void InnerOpacityTransition(float Inner) =>
+        StartAnimation(Inner, () => originalInnerTransparence, Inner => innerColorTransparence = Inner);
+    public void OuterOpacityTransition(float Outer) =>
+        StartAnimation(Outer, () => originalOuterTransparence, Outer => outerColorTransparence = Outer);
     public void AddOffsetTransition(float OffsetX, float OffsetY)
     {
         AddOffsetXTransition(OffsetX);
         AddOffsetYTransition(OffsetY);
     }
+
+    // Without MarkDirty will not update float
     public void StartAnimation(float hoverValue, Func<float> original, Action<float> updateField)
     {
         RegisterCallback<MouseEnterEvent>(evt =>
@@ -525,7 +491,7 @@ public partial class Shadow : VisualElement
             onValueChanged: (e, hoverValue) =>
             {
                 updateField(hoverValue);
-                Debug.Log(original);
+                MarkDirtyRepaint();
             }
         ));
 
@@ -537,9 +503,8 @@ public partial class Shadow : VisualElement
             onValueChanged: (e, hoverValue) =>
             {
                 updateField(hoverValue);
-                Debug.Log(original);
+                MarkDirtyRepaint();
             }
         ));
     }
-
 }
