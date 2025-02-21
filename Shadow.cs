@@ -480,7 +480,7 @@ public partial class Shadow : VisualElement
         AddOffsetYTransition(OffsetY);
     }
 
-    // Without MarkDirty will not update float
+    // Without MarkDirty will not update on float
     public void StartAnimation(float hoverValue, Func<float> original, Action<float> updateField)
     {
         RegisterCallback<MouseEnterEvent>(evt =>
